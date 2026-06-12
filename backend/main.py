@@ -11,11 +11,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from alembic import command
+from alembic.config import Config as AlembicConfig
 from dbos import DBOS
 from fastapi import FastAPI
 
-from alembic import command
-from alembic.config import Config as AlembicConfig
 from backend import events
 from backend.api.status import router as status_router
 from backend.config import load_settings

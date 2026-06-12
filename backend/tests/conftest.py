@@ -9,11 +9,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
-from alembic import command
-from alembic.config import Config
 from backend.db import get_engine, get_sessionmaker, normalize_url
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
