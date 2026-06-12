@@ -3,7 +3,9 @@ name = "trading-bot"
 version = "0.1.0"
 description = "T212 automated paper-trading bot (R1)"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic-settings>=2.14.1",
+]
 
 [dependency-groups]
 dev = [
