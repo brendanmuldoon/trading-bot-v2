@@ -28,6 +28,30 @@ from backend.models import (
 
 NOW = datetime(2026, 6, 12, 14, 0, tzinfo=UTC)
 
+# Children before parents (FKs): the shared test DB accumulates committed
+# rows from broker-suite tests, so each round-trip test starts clean.
+_CLEAN_ORDER = [
+    "orders",
+    "positions",
+    "decisions",
+    "equity_snapshots",
+    "transactions",
+    "events",
+    "candles",
+    "instruments",
+    "strategies",
+    "bot_state",
+]
+
+
+@pytest.fixture(autouse=True)
+def clean_tables(db_session: Session) -> None:
+    from sqlalchemy import text
+
+    for table in _CLEAN_ORDER:
+        db_session.execute(text(f"DELETE FROM {table}"))
+    db_session.commit()
+
 
 def make_strategy(db_session: Session, name: str = "trend") -> Strategy:
     strategy = Strategy(name=name, allocation=0.5, params={"fast_ma": 20}, enabled=True)
