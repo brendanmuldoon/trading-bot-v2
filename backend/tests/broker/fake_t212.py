@@ -137,6 +137,7 @@ class FakeT212:
         self._next_order_id = 1000
         self._forced_429: dict[str, int] = {}
         self._forced_errors: dict[str, list[int]] = {}
+        self._forced_hangs: dict[str, list[bool]] = {}
         self._forced_timeouts: dict[str, list[bool]] = {}  # path -> [place_order_anyway,...]
         self.limits: dict[str, tuple[int, int]] = dict(DEFAULT_LIMITS)
         self.request_log: list[tuple[str, str, dict[str, Any] | None]] = []
@@ -159,9 +160,20 @@ class FakeT212:
         the C11 ambiguous-result hazard."""
         self._forced_timeouts.setdefault(path, []).append(place_order)
 
+    def hang_pending(self, path: str) -> bool:
+        """True while a queued hang has not yet been consumed by a request."""
+        return bool(self._forced_hangs.get(path))
+
     def queue_error(self, path: str, status: int, count: int = 1) -> None:
         """Force the next `count` requests to `path` to return `status`."""
         self._forced_errors.setdefault(path, []).extend([status] * count)
+
+    def queue_hang(self, path: str, *, place_order_first: bool = False) -> None:
+        """ASGI mode only: the next request to `path` hangs forever
+        (until the caller is killed). With place_order_first=True a POST
+        body still creates the order — crash-mid-step-2 with the order
+        actually placed (C11)."""
+        self._forced_hangs.setdefault(path, []).append(place_order_first)
 
     def seed_history_orders(self, count: int, ticker: str = "SPY_US_EQ") -> None:
         for i in range(count):
@@ -195,6 +207,60 @@ class FakeT212:
     @property
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self._handle_httpx)
+
+    @property
+    def asgi_app(self) -> Any:
+        """Minimal ASGI adapter over handle() so the fake can be served
+        over real HTTP for cross-process durability tests (T11)."""
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            assert scope["type"] == "http"
+            import asyncio
+
+            body_bytes = b""
+            while True:
+                message = await receive()
+                body_bytes += message.get("body", b"")
+                if not message.get("more_body"):
+                    break
+            body = json.loads(body_bytes) if body_bytes else None
+            path = scope["path"]
+            method = scope["method"]
+            query = {k: v[0] for k, v in parse_qs(scope.get("query_string", b"").decode()).items()}
+            headers = {k.decode(): v.decode() for k, v in scope.get("headers", [])}
+
+            limit_path = path if not path.rsplit("/", 1)[-1].isdigit() else path.rsplit("/", 1)[0]
+            hangs = self._forced_hangs.get(limit_path)
+            if hangs:
+                place_order_first = hangs.pop(0)
+                if place_order_first and method == "POST" and body is not None:
+                    self._create_order(path, body)
+                await asyncio.Event().wait()  # hang until the client dies
+
+            try:
+                status, payload, resp_headers = self.handle(method, path, query, body, headers)
+            except httpx.ReadTimeout:
+                await asyncio.Event().wait()  # queued timeout == hang over real HTTP
+                raise AssertionError("unreachable") from None
+
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": status,
+                    "headers": [
+                        *[(k.encode(), v.encode()) for k, v in resp_headers.items()],
+                        (b"content-type", b"application/json"),
+                    ],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": json.dumps(payload).encode() if payload is not None else b"null",
+                }
+            )
+
+        return app
 
     # ---- request handling --------------------------------------------------
 
@@ -369,6 +435,20 @@ class FakeT212:
         order.filled_quantity = round(order.quantity * ratio, 8)
         order.status = "FILLED" if ratio >= 1.0 else "PARTIALLY_FILLED"
         self._apply_fill(order.ticker, order.filled_quantity)
+        self._append_history(order)
+
+    def _append_history(self, order: FakeOrder) -> None:
+        inst = self.instruments.get(order.ticker)
+        self.history_orders.insert(
+            0,
+            {
+                "order": order.json(inst),
+                "fill": {
+                    "price": inst.price if inst else 100.0,
+                    "quantity": order.filled_quantity,
+                },
+            },
+        )
 
     def fill_remainder(self, order_id: int) -> None:
         """Test hook: complete a partial fill."""

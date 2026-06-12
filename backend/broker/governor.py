@@ -95,11 +95,21 @@ class Governor:
         self._queue: asyncio.PriorityQueue[_Job] = asyncio.PriorityQueue()
         self._seq = itertools.count()
         self._worker: asyncio.Task[None] | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._last_request_at: float | None = None
         self.budgets: dict[str, EndpointBudget] = {}
 
     async def start(self) -> None:
+        """Start (or restart) the worker in the current event loop. The
+        governor is single-loop: in production all broker traffic runs
+        inside DBOS's workflow loop, and request() lazily starts the
+        worker there."""
+        loop = asyncio.get_running_loop()
+        if self._worker is not None and (self._worker.done() or self._loop is not loop):
+            self._worker = None
         if self._worker is None:
+            self._loop = loop
+            self._queue = asyncio.PriorityQueue()
             self._worker = asyncio.create_task(self._run())
 
     async def stop(self) -> None:
@@ -120,6 +130,7 @@ class Governor:
     ) -> httpx.Response:
         """Enqueue and await. Raises what the underlying call raised, or
         GovernorExhaustedError after a 429 storm."""
+        await self.start()  # lazy/idempotent; binds worker to this loop
         loop = asyncio.get_running_loop()
         job = _Job(
             priority=int(priority),

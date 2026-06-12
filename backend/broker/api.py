@@ -52,6 +52,20 @@ class BrokerAPI:
         )
         return BrokerOrder.model_validate(resp.json())
 
+    async def get_recent_filled_orders(
+        self, *, priority: Priority = Priority.RECONCILE, limit: int = 50
+    ) -> list[BrokerOrder]:
+        """First page of order history, newest orders included — used by
+        the T11 verify step to spot an already-executed ambiguous submit."""
+        resp = await self._requester.request(
+            "GET",
+            f"{API}/equity/history/orders",
+            priority=priority,
+            params={"limit": limit},
+        )
+        items = resp.json().get("items", [])
+        return [BrokerOrder.model_validate(item["order"]) for item in items if item.get("order")]
+
     async def cancel_order(self, order_id: int, *, priority: Priority = Priority.ENTRY) -> None:
         await self._requester.request(
             "DELETE", f"{API}/equity/orders/{order_id}", priority=priority

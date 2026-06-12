@@ -44,9 +44,10 @@ class T212Client:
         *,
         timeout: float = 10.0,
         transport: httpx.BaseTransport | httpx.AsyncBaseTransport | None = None,
+        base_url: str | None = None,  # test override (HTTP-served fake)
     ) -> None:
         self.env = env
-        self.base_url = BASE_URLS[env]
+        self.base_url = base_url or BASE_URLS[env]
         self._http = httpx.AsyncClient(
             base_url=self.base_url,
             auth=(api_key, api_secret),
