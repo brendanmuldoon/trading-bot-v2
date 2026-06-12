@@ -101,7 +101,7 @@ def _extract(raw: pd.DataFrame, ticker: str) -> pd.DataFrame | None:
     frame.index = index.tz_localize(UTC) if index.tz is None else index.tz_convert(UTC)
     frame.index.name = "ts"
     frame["volume"] = frame["volume"].fillna(0).astype("int64")
-    return cast(pd.DataFrame, frame)
+    return frame
 
 
 def _utcnow() -> datetime:
