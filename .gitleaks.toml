@@ -1,0 +1,21 @@
+# Gitleaks config: default rules plus a rule for T212 credentials in env-style files.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "t212-env-credential"
+description = "Trading 212 API key/secret assigned a non-empty value"
+regex = '''(?i)T212_API_(KEY|SECRET)\s*=\s*['"]?[A-Za-z0-9_\-]{8,}'''
+
+[rules.allowlist]
+description = "Spec/docs contain illustrative fake keys"
+paths = [
+  '''^spec/''',
+  '''^docs/''',
+]
+
+[allowlist]
+description = "Documented placeholders"
+paths = [
+  '''\.env\.example$''',
+]
