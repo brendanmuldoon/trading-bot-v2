@@ -1,0 +1,40 @@
+# T212 Bot — local R1 deployment (spec §15).
+#
+# SINGLE APP INSTANCE ONLY: T212 rate limits are per-account and the
+# broker-client budget manager is in-process. Running two app replicas
+# would double-spend the rate budget. Do not scale `app` beyond 1.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: bot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: trading_bot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Bound to localhost only — not reachable off-host (spec §15).
+    # Host port defaults to 5433 to avoid clashing with a host Postgres.
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bot -d trading_bot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://bot:${POSTGRES_PASSWORD}@postgres:5432/trading_bot
+    ports:
+      - "127.0.0.1:${UI_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
