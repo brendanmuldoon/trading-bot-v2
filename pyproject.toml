@@ -36,6 +36,8 @@ extend-exclude = ["frontend", "spec", "designs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# Math symbols used deliberately in finance comments (σ bands, × sizing).
+allowed-confusables = ["σ", "×", "−"]
 
 [tool.ruff.lint.isort]
 # backend/alembic/ shadows the alembic package name under src; pin it.
