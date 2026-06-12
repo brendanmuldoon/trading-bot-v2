@@ -45,7 +45,7 @@ def clean_tables(session_factory: sessionmaker[Session]) -> None:
 
 
 @pytest.fixture()
-def governor(fake: FakeT212) -> "Iterator[Governor]":  # type: ignore[misc]
+def governor(fake: FakeT212) -> Iterator[Governor]:
     client = T212Client("k", "s", env="demo", transport=fake.transport)
     yield Governor(client, spacing=0.0, sleep=_instant_sleep)
 
