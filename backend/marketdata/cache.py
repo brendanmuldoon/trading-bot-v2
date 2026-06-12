@@ -78,18 +78,19 @@ class CandleCache:
     def _upsert(self, session: Session, symbol: str, frame: pd.DataFrame) -> int:
         if frame.empty:
             return 0
+        index = pd.DatetimeIndex(frame.index)
         rows = [
             {
                 "symbol": symbol,
                 "interval": self.interval,
                 "ts": ts.to_pydatetime(),
-                "o": float(row["open"]),
-                "h": float(row["high"]),
-                "l": float(row["low"]),
-                "c": float(row["close"]),
-                "v": int(row["volume"]),
+                "o": float(frame["open"].iloc[i]),
+                "h": float(frame["high"].iloc[i]),
+                "l": float(frame["low"].iloc[i]),
+                "c": float(frame["close"].iloc[i]),
+                "v": int(frame["volume"].iloc[i]),
             }
-            for ts, row in frame.iterrows()
+            for i, ts in enumerate(index)
         ]
         statement = (
             pg_insert(Candle)

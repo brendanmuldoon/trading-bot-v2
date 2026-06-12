@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from backend.db import get_sessionmaker
 from backend.marketdata.cache import CandleCache
-from backend.marketdata.provider import MarketDataError
+from backend.marketdata.provider import MarketDataError, Quote
 from backend.models import Candle
 
 NOW = datetime(2026, 6, 12, 18, 0, tzinfo=UTC)
@@ -30,7 +30,7 @@ class FakeProvider:
             raise MarketDataError("provider down")
         return {t: f.tail(lookback_bars) for t, f in self.frames.items() if t in tickers}
 
-    def get_quote(self, tickers: list[str]) -> dict[str, object]:  # pragma: no cover
+    def get_quote(self, tickers: list[str]) -> "dict[str, Quote]":  # pragma: no cover
         raise NotImplementedError
 
 
