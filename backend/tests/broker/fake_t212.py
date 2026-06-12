@@ -136,6 +136,7 @@ class FakeT212:
         self.reject_stops = False
         self._next_order_id = 1000
         self._forced_429: dict[str, int] = {}
+        self._forced_errors: dict[str, list[int]] = {}
         self._forced_timeouts: dict[str, list[bool]] = {}  # path -> [place_order_anyway,...]
         self.limits: dict[str, tuple[int, int]] = dict(DEFAULT_LIMITS)
         self.request_log: list[tuple[str, str, dict[str, Any] | None]] = []
@@ -157,6 +158,10 @@ class FakeT212:
         place_order=True the order is still created server-side first —
         the C11 ambiguous-result hazard."""
         self._forced_timeouts.setdefault(path, []).append(place_order)
+
+    def queue_error(self, path: str, status: int, count: int = 1) -> None:
+        """Force the next `count` requests to `path` to return `status`."""
+        self._forced_errors.setdefault(path, []).extend([status] * count)
 
     def seed_history_orders(self, count: int, ticker: str = "SPY_US_EQ") -> None:
         for i in range(count):
@@ -225,6 +230,11 @@ class FakeT212:
         if self._forced_429.get(limit_path, 0) > 0:
             self._forced_429[limit_path] -= 1
             return 429, {"errorMessage": "Limited"}, {**rl_headers, "x-ratelimit-remaining": "0"}
+
+        forced = self._forced_errors.get(limit_path)
+        if forced:
+            status = forced.pop(0)
+            return status, {"errorMessage": f"forced {status}"}, rl_headers
 
         timeouts = self._forced_timeouts.get(limit_path)
         if timeouts:
