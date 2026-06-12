@@ -18,6 +18,7 @@ from backend.models.tables import (
     Order,
     Position,
     Strategy,
+    Transaction,
 )
 
 __all__ = [
@@ -38,4 +39,5 @@ __all__ = [
     "PositionStatus",
     "StopMode",
     "Strategy",
+    "Transaction",
 ]

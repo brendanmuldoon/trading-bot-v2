@@ -159,6 +159,22 @@ class Event(Base):
     context: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
+class Transaction(Base):
+    """Broker cash transactions from /history/transactions (T12).
+
+    Not in the §11 table list, but §10's history-sync workflow requires
+    persisting transactions; `reference` is the idempotency key."""
+
+    __tablename__ = "transactions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    reference: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    type: Mapped[str] = mapped_column(String(32), nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class BotStateRow(Base):
     """Singleton (§11): exactly one row, enforced by CHECK (id = 1)."""
 
