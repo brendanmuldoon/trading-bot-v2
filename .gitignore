@@ -1,0 +1,37 @@
+# Secrets / local config
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Build artifacts
+build/
+dist/
+
+# Local agent settings
+.claude/settings.local.json
+.claude/statusline-command.sh
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Database dumps / local data
+*.dump
+*.sql.gz
